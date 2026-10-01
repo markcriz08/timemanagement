@@ -1,4 +1,4 @@
-let allRecords = [];
+﻿let allRecords = [];
 
 function escapeHtml(str) {
     if (!str) return '';
