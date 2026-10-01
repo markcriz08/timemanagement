@@ -163,7 +163,6 @@ def clock():
     method = data.get('method')
     pin = data.get('pin', None)
 
-    # Fetch employee details
     emp_res = supabase.table("employees").select("name", "pin").eq("emp_code", emp_code).execute()
     if not emp_res.data:
         return jsonify({"status": "error", "message": "Employee ID not recognized!"}), 404
@@ -178,7 +177,6 @@ def clock():
     now_utc = datetime.now(timezone.utc)
     now_ph = now_utc.astimezone(PH_TZ)
 
-    # Check cooldown period safely in UTC
     last_log_res = supabase.table("attendance") \
         .select("timestamp") \
         .eq("emp_code", emp_code) \
@@ -191,7 +189,6 @@ def clock():
         try:
             last_time = datetime.fromisoformat(ts_str)
             if last_time.tzinfo is None:
-                # If naive, treat as UTC
                 last_time = last_time.replace(tzinfo=timezone.utc)
             else:
                 last_time = last_time.astimezone(timezone.utc)
@@ -199,7 +196,6 @@ def clock():
             time_diff_seconds = (now_utc - last_time).total_seconds()
             cooldown_seconds = SCAN_INTERVAL_MINUTES * 60
 
-            # Safeguard: only apply cooldown if time diff is positive and less than interval
             if 0 <= time_diff_seconds < cooldown_seconds:
                 remaining_secs = int(cooldown_seconds - time_diff_seconds)
                 rem_mins = remaining_secs // 60
@@ -212,7 +208,6 @@ def clock():
         except Exception as e:
             print(f"Error checking cooldown timestamp: {e}")
 
-    # Determine today's punch sequence based on Philippines calendar date
     today_ph_date = now_ph.strftime("%Y-%m-%d")
 
     all_user_logs = supabase.table("attendance") \
@@ -249,7 +244,6 @@ def clock():
             "message": f"All daily punches already completed for {emp_name}!"
         }), 400
 
-    # Save timestamp in standard ISO UTC format
     supabase.table("attendance").insert({
         "emp_code": emp_code,
         "name": emp_name,
@@ -325,7 +319,7 @@ def update_attendance_record():
     if not session.get('logged_in'):
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
-    data = request.json
+    data = request.json or {}
     emp_code = data.get('emp_code')
     date_str = data.get('date')
     
@@ -377,6 +371,32 @@ def update_attendance_record():
             }).execute()
 
     return jsonify({"status": "success", "message": "Attendance record updated successfully!"})
+
+@app.route('/api/records/delete', methods=['DELETE'])
+def delete_attendance_record():
+    if not session.get('logged_in'):
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    data = request.json or {}
+    emp_code = data.get('emp_code')
+    date_str = data.get('date')
+
+    if not emp_code or not date_str:
+        return jsonify({"status": "error", "message": "Missing employee code or date."}), 400
+
+    day_start = f"{date_str}T00:00:00"
+    day_end = f"{date_str}T23:59:59"
+
+    try:
+        supabase.table("attendance") \
+            .delete() \
+            .eq("emp_code", emp_code) \
+            .gte("timestamp", day_start) \
+            .lte("timestamp", day_end) \
+            .execute()
+        return jsonify({"status": "success", "message": f"Attendance record for {emp_code} on {date_str} deleted successfully!"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
 @app.route('/api/export_excel', methods=['GET'])
 def export_excel():

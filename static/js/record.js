@@ -1,126 +1,137 @@
-let cachedRecords = [];
+let allRecords = [];
 
 async function loadRecords() {
     try {
-        const response = await fetch('/api/records');
-        cachedRecords = await response.json();
-        updateKPIs(cachedRecords);
-        renderTable(cachedRecords);
+        const res = await fetch('/api/records');
+        allRecords = await res.json();
+        renderTable(allRecords);
+        updateKPIs(allRecords);
     } catch (err) {
-        console.error("Failed to load records:", err);
+        console.error("Failed to fetch records:", err);
     }
-}
-
-function updateKPIs(records) {
-    let countIn = 0, countLunch = 0, countOut = 0;
-    records.forEach(r => {
-        if (r.time_in !== '-') countIn++;
-        if (r.lunch_out !== '-' || r.lunch_in !== '-') countLunch++;
-        if (r.time_out !== '-') countOut++;
-    });
-
-    document.getElementById('kpi-total').innerText = records.length;
-    document.getElementById('kpi-in').innerText = countIn;
-    document.getElementById('kpi-lunch').innerText = countLunch;
-    document.getElementById('kpi-out').innerText = countOut;
 }
 
 function renderTable(records) {
     const tbody = document.getElementById('logs-table-body');
-    tbody.innerHTML = '';
+    if (!tbody) return;
 
-    records.forEach(log => {
-        const tr = document.createElement('tr');
-        tr.id = `row-${log.emp_code}-${log.date}`;
-        tr.innerHTML = `
-            <td><strong>#${log.id}</strong></td>
-            <td><strong>${log.emp_code}</strong></td>
-            <td>${log.name}</td>
-            <td class="cell-time-in"><span class="badge ${log.time_in !== '-' ? 'badge-in' : ''}">${log.time_in}</span></td>
-            <td class="cell-lunch-out"><span class="badge ${log.lunch_out !== '-' ? 'badge-lunch' : ''}">${log.lunch_out}</span></td>
-            <td class="cell-lunch-in"><span class="badge ${log.lunch_in !== '-' ? 'badge-lunch' : ''}">${log.lunch_in}</span></td>
-            <td class="cell-time-out"><span class="badge ${log.time_out !== '-' ? 'badge-out' : ''}">${log.time_out}</span></td>
-            <td><span class="badge badge-method">${log.method}</span></td>
-            <td style="text-align: center;">
-                <button class="btn-action btn-secondary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="enableRowEdit('${log.emp_code}', '${log.date}')">
-                    <i class="ri-edit-line"></i> Edit
-                </button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-function enableRowEdit(empCode, dateStr) {
-    sounds.playClick();
-    const row = document.getElementById(`row-${empCode}-${dateStr}`);
-    if (!row) return;
-
-    const record = cachedRecords.find(r => r.emp_code === empCode && r.date === dateStr);
-    if (!record) return;
-
-    row.querySelector('.cell-time-in').innerHTML = `<input type="text" class="input-control input-time-in" style="padding: 2px 4px; text-align: center;" value="${record.time_in !== '-' ? record.time_in : ''}" placeholder="HH:MM:SS">`;
-    row.querySelector('.cell-lunch-out').innerHTML = `<input type="text" class="input-control input-lunch-out" style="padding: 2px 4px; text-align: center;" value="${record.lunch_out !== '-' ? record.lunch_out : ''}" placeholder="HH:MM:SS">`;
-    row.querySelector('.cell-lunch-in').innerHTML = `<input type="text" class="input-control input-lunch-in" style="padding: 2px 4px; text-align: center;" value="${record.lunch_in !== '-' ? record.lunch_in : ''}" placeholder="HH:MM:SS">`;
-    row.querySelector('.cell-time-out').innerHTML = `<input type="text" class="input-control input-time-out" style="padding: 2px 4px; text-align: center;" value="${record.time_out !== '-' ? record.time_out : ''}" placeholder="HH:MM:SS">`;
-
-    const actionCell = row.cells[row.cells.length - 1];
-    actionCell.innerHTML = `
-        <button class="btn-action btn-success" style="padding: 4px 8px; font-size: 0.8rem;" onclick="saveRowEdit('${empCode}', '${dateStr}')"><i class="ri-save-line"></i> Save</button>
-        <button class="btn-action btn-secondary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="loadRecords()"><i class="ri-close-line"></i></button>
-    `;
-}
-
-async function saveRowEdit(empCode, dateStr) {
-    sounds.playClick();
-    const row = document.getElementById(`row-${empCode}-${dateStr}`);
-    if (!row) return;
-
-    const timeIn = row.querySelector('.input-time-in').value.trim();
-    const lunchOut = row.querySelector('.input-lunch-out').value.trim();
-    const lunchIn = row.querySelector('.input-lunch-in').value.trim();
-    const timeOut = row.querySelector('.input-time-out').value.trim();
-
-    try {
-        const response = await fetch('/api/records/update', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                emp_code: empCode,
-                date: dateStr,
-                time_in: timeIn,
-                lunch_out: lunchOut,
-                lunch_in: lunchIn,
-                time_out: timeOut
-            })
-        });
-
-        if (response.ok) {
-            sounds.playSuccess();
-            await loadRecords();
-        } else {
-            sounds.playError();
-            alert("Failed to update record!");
-        }
-    } catch (err) {
-        sounds.playError();
-        console.error("Save error:", err);
+    if (!records || records.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-muted);">No attendance records found.</td></tr>`;
+        return;
     }
+
+    tbody.innerHTML = records.map(r => `
+        <tr>
+            <td style="font-weight: 700; color: #fff;">#${r.id}</td>
+            <td style="font-weight: 700; color: var(--accent-cyan);">${r.emp_code}</td>
+            <td style="color: #f1f5f9; font-weight: 600;">${r.name}</td>
+            <td>${r.time_in !== '-' ? `<span class="badge-time">${r.time_in}</span>` : '-'}</td>
+            <td>${r.lunch_out !== '-' ? `<span class="badge-time">${r.lunch_out}</span>` : '-'}</td>
+            <td>${r.lunch_in !== '-' ? `<span class="badge-time">${r.lunch_in}</span>` : '-'}</td>
+            <td>${r.time_out !== '-' ? `<span class="badge-time">${r.time_out}</span>` : '-'}</td>
+            <td><span class="badge-method">${r.method || 'FACE'}</span></td>
+            <td>
+                <div class="action-group">
+                    <button class="btn-table-action btn-table-edit" onclick="openEditModal('${r.emp_code}', '${r.date}', '${r.name}', '${r.time_in}', '${r.lunch_out}', '${r.lunch_in}', '${r.time_out}')">
+                        <i class="ri-edit-line"></i> Edit
+                    </button>
+                    <button class="btn-table-action btn-table-delete" onclick="deleteRecord('${r.emp_code}', '${r.date}', '${r.name}')">
+                        <i class="ri-delete-bin-line"></i> Delete
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function updateKPIs(records) {
+    document.getElementById('kpi-total').textContent = records.length;
+    document.getElementById('kpi-in').textContent = records.filter(r => r.time_in !== '-').length;
+    document.getElementById('kpi-lunch').textContent = records.filter(r => r.lunch_out !== '-' || r.lunch_in !== '-').length;
+    document.getElementById('kpi-out').textContent = records.filter(r => r.time_out !== '-').length;
 }
 
 function filterLogs() {
     const query = document.getElementById('search-input').value.toLowerCase();
-    const rows = document.querySelectorAll('#logs-table-body tr');
-
-    rows.forEach(row => {
-        const text = row.innerText.toLowerCase();
-        row.style.display = text.includes(query) ? '' : 'none';
-    });
+    const filtered = allRecords.filter(r => 
+        r.emp_code.toLowerCase().includes(query) || 
+        r.name.toLowerCase().includes(query)
+    );
+    renderTable(filtered);
 }
 
 function exportToExcel() {
-    sounds.playClick();
     window.location.href = '/api/export_excel';
+}
+
+function openEditModal(empCode, dateStr, name, timeIn, lunchOut, lunchIn, timeOut) {
+    document.getElementById('edit-emp-code').value = empCode;
+    document.getElementById('edit-date').value = dateStr;
+    document.getElementById('edit-name').value = name;
+    document.getElementById('edit-time-in').value = timeIn === '-' ? '' : timeIn;
+    document.getElementById('edit-lunch-out').value = lunchOut === '-' ? '' : lunchOut;
+    document.getElementById('edit-lunch-in').value = lunchIn === '-' ? '' : lunchIn;
+    document.getElementById('edit-time-out').value = timeOut === '-' ? '' : timeOut;
+    document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+    document.getElementById('edit-modal').classList.add('hidden');
+}
+
+async function saveEdit(e) {
+    e.preventDefault();
+    const payload = {
+        emp_code: document.getElementById('edit-emp-code').value,
+        date: document.getElementById('edit-date').value,
+        time_in: document.getElementById('edit-time-in').value,
+        lunch_out: document.getElementById('edit-lunch-out').value,
+        lunch_in: document.getElementById('edit-lunch-in').value,
+        time_out: document.getElementById('edit-time-out').value
+    };
+
+    try {
+        const res = await fetch('/api/records/update', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            closeEditModal();
+            loadRecords();
+        } else {
+            alert(data.message || 'Error updating attendance record');
+        }
+    } catch (err) {
+        console.error("Failed to update record:", err);
+        alert("An error occurred while saving changes.");
+    }
+}
+
+async function deleteRecord(empCode, dateStr, name) {
+    if (!confirm(`Are you sure you want to delete all logs for ${name} (${empCode}) on ${dateStr}?`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/records/delete', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ emp_code: empCode, date: dateStr })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            loadRecords();
+        } else {
+            alert(data.message || 'Failed to delete attendance record.');
+        }
+    } catch (err) {
+        console.error("Delete request failed:", err);
+        alert("An error occurred while deleting the record.");
+    }
 }
 
 document.addEventListener('DOMContentLoaded', loadRecords);
