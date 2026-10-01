@@ -1,5 +1,15 @@
 let allRecords = [];
 
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 async function loadRecords() {
     try {
         const res = await fetch('/api/records');
@@ -20,28 +30,61 @@ function renderTable(records) {
         return;
     }
 
-    tbody.innerHTML = records.map(r => `
+    tbody.innerHTML = records.map(r => {
+        const empCode = escapeHtml(r.emp_code || '');
+        const dateStr = escapeHtml(r.date || '');
+        const name = escapeHtml(r.name || '');
+        const timeIn = escapeHtml(r.time_in || '-');
+        const lunchOut = escapeHtml(r.lunch_out || '-');
+        const lunchIn = escapeHtml(r.lunch_in || '-');
+        const timeOut = escapeHtml(r.time_out || '-');
+        const method = escapeHtml(r.method || 'FACE');
+
+        return `
         <tr>
             <td style="font-weight: 700; color: #fff;">#${r.id}</td>
-            <td style="font-weight: 700; color: var(--accent-cyan);">${r.emp_code}</td>
-            <td style="color: #f1f5f9; font-weight: 600;">${r.name}</td>
-            <td>${r.time_in !== '-' ? `<span class="badge-time">${r.time_in}</span>` : '-'}</td>
-            <td>${r.lunch_out !== '-' ? `<span class="badge-time">${r.lunch_out}</span>` : '-'}</td>
-            <td>${r.lunch_in !== '-' ? `<span class="badge-time">${r.lunch_in}</span>` : '-'}</td>
-            <td>${r.time_out !== '-' ? `<span class="badge-time">${r.time_out}</span>` : '-'}</td>
-            <td><span class="badge-method">${r.method || 'FACE'}</span></td>
+            <td style="font-weight: 700; color: var(--accent-cyan);">${empCode}</td>
+            <td style="color: #f1f5f9; font-weight: 600;">${name}</td>
+            <td>${timeIn !== '-' ? `<span class="badge-time">${timeIn}</span>` : '-'}</td>
+            <td>${lunchOut !== '-' ? `<span class="badge-time">${lunchOut}</span>` : '-'}</td>
+            <td>${lunchIn !== '-' ? `<span class="badge-time">${lunchIn}</span>` : '-'}</td>
+            <td>${timeOut !== '-' ? `<span class="badge-time">${timeOut}</span>` : '-'}</td>
+            <td><span class="badge-method">${method}</span></td>
             <td>
                 <div class="action-group">
-                    <button class="btn-table-action btn-table-edit" onclick="openEditModal('${r.emp_code}', '${r.date}', '${r.name}', '${r.time_in}', '${r.lunch_out}', '${r.lunch_in}', '${r.time_out}')">
+                    <button class="btn-table-action btn-table-edit" 
+                        data-empcode="${empCode}" 
+                        data-date="${dateStr}" 
+                        data-name="${name}" 
+                        data-timein="${timeIn}" 
+                        data-lunchout="${lunchOut}" 
+                        data-lunchin="${lunchIn}" 
+                        data-timeout="${timeOut}"
+                        onclick="handleEditClick(this)">
                         <i class="ri-edit-line"></i> Edit
                     </button>
-                    <button class="btn-table-action btn-table-delete" onclick="deleteRecord('${r.emp_code}', '${r.date}', '${r.name}')">
+                    <button class="btn-table-action btn-table-delete" 
+                        data-empcode="${empCode}" 
+                        data-date="${dateStr}" 
+                        data-name="${name}"
+                        onclick="handleDeleteClick(this)">
                         <i class="ri-delete-bin-line"></i> Delete
                     </button>
                 </div>
             </td>
         </tr>
-    `).join('');
+        `;
+    }).join('');
+}
+
+function handleEditClick(btn) {
+    const ds = btn.dataset;
+    openEditModal(ds.empcode, ds.date, ds.name, ds.timein, ds.lunchout, ds.lunchin, ds.timeout);
+}
+
+function handleDeleteClick(btn) {
+    const ds = btn.dataset;
+    deleteRecord(ds.empcode, ds.date, ds.name);
 }
 
 function updateKPIs(records) {
