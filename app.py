@@ -175,9 +175,10 @@ def clock():
     if method == 'MANUAL' and str(pin) != stored_pin:
         return jsonify({"status": "error", "message": "Invalid Security PIN!"}), 401
 
-    now_ph = datetime.now(PH_TZ)
+    now_utc = datetime.now(timezone.utc)
+    now_ph = now_utc.astimezone(PH_TZ)
 
-    # Check cooldown period
+    # Check cooldown period safely in UTC
     last_log_res = supabase.table("attendance") \
         .select("timestamp") \
         .eq("emp_code", emp_code) \
@@ -187,36 +188,52 @@ def clock():
 
     if last_log_res.data and last_log_res.data[0].get("timestamp"):
         ts_str = last_log_res.data[0]["timestamp"].replace('Z', '+00:00')
-        last_time = datetime.fromisoformat(ts_str)
-        if last_time.tzinfo is None:
-            last_time = last_time.replace(tzinfo=timezone.utc)
-        
-        time_diff_seconds = (now_ph - last_time).total_seconds()
-        cooldown_seconds = SCAN_INTERVAL_MINUTES * 60
+        try:
+            last_time = datetime.fromisoformat(ts_str)
+            if last_time.tzinfo is None:
+                # If naive, treat as UTC
+                last_time = last_time.replace(tzinfo=timezone.utc)
+            else:
+                last_time = last_time.astimezone(timezone.utc)
 
-        if time_diff_seconds < cooldown_seconds:
-            remaining_secs = int(cooldown_seconds - time_diff_seconds)
-            rem_mins = remaining_secs // 60
-            rem_secs = remaining_secs % 60
-            time_str = f"{rem_mins}m {rem_secs}s" if rem_mins > 0 else f"{rem_secs}s"
-            return jsonify({
-                "status": "error",
-                "message": f"Scan rejected! {emp_name} must wait {time_str} before scanning again."
-            }), 400
+            time_diff_seconds = (now_utc - last_time).total_seconds()
+            cooldown_seconds = SCAN_INTERVAL_MINUTES * 60
 
-    # Determine today's punch sequence
-    today_start = now_ph.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-    today_end = now_ph.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
+            # Safeguard: only apply cooldown if time diff is positive and less than interval
+            if 0 <= time_diff_seconds < cooldown_seconds:
+                remaining_secs = int(cooldown_seconds - time_diff_seconds)
+                rem_mins = remaining_secs // 60
+                rem_secs = remaining_secs % 60
+                time_str = f"{rem_mins}m {rem_secs}s" if rem_mins > 0 else f"{rem_secs}s"
+                return jsonify({
+                    "status": "error",
+                    "message": f"Scan rejected! {emp_name} must wait {time_str} before scanning again."
+                }), 400
+        except Exception as e:
+            print(f"Error checking cooldown timestamp: {e}")
 
-    today_logs = supabase.table("attendance") \
-        .select("type") \
+    # Determine today's punch sequence based on Philippines calendar date
+    today_ph_date = now_ph.strftime("%Y-%m-%d")
+
+    all_user_logs = supabase.table("attendance") \
+        .select("type, timestamp") \
         .eq("emp_code", emp_code) \
-        .gte("timestamp", today_start) \
-        .lte("timestamp", today_end) \
         .order("id", desc=False) \
         .execute()
 
-    today_types = [row["type"].strip().upper() for row in (today_logs.data or [])]
+    today_types = []
+    for row in (all_user_logs.data or []):
+        ts = row.get("timestamp")
+        if not ts:
+            continue
+        try:
+            dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            if dt.astimezone(PH_TZ).strftime("%Y-%m-%d") == today_ph_date:
+                today_types.append(row["type"].strip().upper())
+        except Exception:
+            continue
 
     if 'IN' not in today_types:
         action_type = 'IN'
@@ -232,11 +249,11 @@ def clock():
             "message": f"All daily punches already completed for {emp_name}!"
         }), 400
 
-    # Record attendance punch
+    # Save timestamp in standard ISO UTC format
     supabase.table("attendance").insert({
         "emp_code": emp_code,
         "name": emp_name,
-        "timestamp": now_ph.isoformat(),
+        "timestamp": now_utc.isoformat(),
         "type": action_type,
         "method": method
     }).execute()
@@ -263,12 +280,15 @@ def get_aggregated_logs():
 
         date_str, time_str = "", ""
         if ts_str:
-            dt = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            dt_ph = dt.astimezone(PH_TZ)
-            date_str = dt_ph.strftime("%Y-%m-%d")
-            time_str = dt_ph.strftime("%H:%M:%S")
+            try:
+                dt = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                dt_ph = dt.astimezone(PH_TZ)
+                date_str = dt_ph.strftime("%Y-%m-%d")
+                time_str = dt_ph.strftime("%H:%M:%S")
+            except Exception:
+                pass
 
         key = (emp_code, date_str)
         if key not in daily_records:
@@ -327,7 +347,12 @@ def update_attendance_record():
             continue
         
         clean_time = time_val.strip()
-        full_ts = f"{date_str}T{clean_time}:00" if len(clean_time.split(':')) == 2 else f"{date_str}T{clean_time}"
+        time_parts = clean_time.split(':')
+        if len(time_parts) == 2:
+            clean_time = f"{clean_time}:00"
+            
+        dt_ph = datetime.fromisoformat(f"{date_str}T{clean_time}").replace(tzinfo=PH_TZ)
+        full_ts = dt_ph.astimezone(timezone.utc).isoformat()
 
         day_start = f"{date_str}T00:00:00"
         day_end = f"{date_str}T23:59:59"
