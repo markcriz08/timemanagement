@@ -24,6 +24,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 SCAN_INTERVAL_MINUTES = 15
+PH_TZ = timezone(timedelta(hours=8))
 
 # --- NAVIGATION ROUTES ---
 
@@ -174,6 +175,8 @@ def clock():
     if method == 'MANUAL' and str(pin) != stored_pin:
         return jsonify({"status": "error", "message": "Invalid Security PIN!"}), 401
 
+    now_ph = datetime.now(PH_TZ)
+
     # Check cooldown period
     last_log_res = supabase.table("attendance") \
         .select("timestamp") \
@@ -184,9 +187,11 @@ def clock():
 
     if last_log_res.data and last_log_res.data[0].get("timestamp"):
         ts_str = last_log_res.data[0]["timestamp"].replace('Z', '+00:00')
-        last_time = datetime.fromisoformat(ts_str).replace(tzinfo=None)
+        last_time = datetime.fromisoformat(ts_str)
+        if last_time.tzinfo is None:
+            last_time = last_time.replace(tzinfo=timezone.utc)
         
-        time_diff_seconds = (datetime.now() - last_time).total_seconds()
+        time_diff_seconds = (now_ph - last_time).total_seconds()
         cooldown_seconds = SCAN_INTERVAL_MINUTES * 60
 
         if time_diff_seconds < cooldown_seconds:
@@ -200,8 +205,8 @@ def clock():
             }), 400
 
     # Determine today's punch sequence
-    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-    today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
+    today_start = now_ph.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    today_end = now_ph.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
 
     today_logs = supabase.table("attendance") \
         .select("type") \
@@ -231,7 +236,7 @@ def clock():
     supabase.table("attendance").insert({
         "emp_code": emp_code,
         "name": emp_name,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": now_ph.isoformat(),
         "type": action_type,
         "method": method
     }).execute()
@@ -259,8 +264,11 @@ def get_aggregated_logs():
         date_str, time_str = "", ""
         if ts_str:
             dt = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
-            date_str = dt.strftime("%Y-%m-%d")
-            time_str = dt.strftime("%H:%M:%S")
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            dt_ph = dt.astimezone(PH_TZ)
+            date_str = dt_ph.strftime("%Y-%m-%d")
+            time_str = dt_ph.strftime("%H:%M:%S")
 
         key = (emp_code, date_str)
         if key not in daily_records:
