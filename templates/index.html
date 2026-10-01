@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- Replace existing viewport tag on line 5 with: -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Attendance Kiosk Terminal</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,7 +20,7 @@
 
     <div class="container">
         <!-- Top Navigation Header -->
-        <header class="glass-panel" style="padding: 1.25rem 2rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <header class="glass-panel kiosk-header">
             <div class="nav-brand">
                 <div class="nav-brand-logo"><i class="ri-scan-touch-line"></i></div>
                 <div>
@@ -29,7 +30,7 @@
             </div>
 
             <!-- Right Controls: Live Clock & Admin Portal Button -->
-            <div style="display: flex; align-items: center; gap: 1.25rem;">
+            <div class="header-controls">
                 <div id="live-clock" style="font-size: 1.5rem; font-weight: 700; color: var(--accent-cyan); font-family: monospace;">--:--:--</div>
                 <a href="/admin" class="btn-action btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; padding: 0.5rem 1rem; text-decoration: none; font-size: 0.85rem; border-radius: 8px;">
                     <i class="ri-shield-keyhole-line"></i> Admin Portal
