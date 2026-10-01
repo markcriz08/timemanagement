@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Records - Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <div class="bg-glow-container">
+        <div class="glow-orb orb-primary"></div>
+        <div class="glow-orb orb-cyan"></div>
+    </div>
+
+    <nav class="app-nav">
+        <div class="nav-brand">
+            <div class="nav-brand-logo"><i class="ri-shield-user-line"></i></div>
+            <span>ADMIN PORTAL</span>
+        </div>
+        <div class="nav-links">
+            <a href="/admin" class="nav-link"><i class="ri-user-add-line"></i> Employee Setup</a>
+            <a href="/record" class="nav-link active"><i class="ri-file-list-3-line"></i> Attendance Records</a>
+            <a href="/kiosk" target="_blank" class="nav-link"><i class="ri-computer-line"></i> Open Kiosk</a>
+            <a href="/logout" class="nav-link btn-logout"><i class="ri-logout-box-r-line"></i> Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="kpi-grid">
+            <div class="glass-panel kpi-card">
+                <div class="kpi-icon indigo"><i class="ri-history-line"></i></div>
+                <div class="kpi-data">
+                    <h4>Total Daily Logs</h4>
+                    <span id="kpi-total">0</span>
+                </div>
+            </div>
+            <div class="glass-panel kpi-card">
+                <div class="kpi-icon emerald"><i class="ri-login-box-line"></i></div>
+                <div class="kpi-data">
+                    <h4>Punches In</h4>
+                    <span id="kpi-in">0</span>
+                </div>
+            </div>
+            <div class="glass-panel kpi-card">
+                <div class="kpi-icon amber"><i class="ri-restaurant-line"></i></div>
+                <div class="kpi-data">
+                    <h4>Lunch Logs</h4>
+                    <span id="kpi-lunch">0</span>
+                </div>
+            </div>
+            <div class="glass-panel kpi-card">
+                <div class="kpi-icon rose"><i class="ri-logout-box-r-line"></i></div>
+                <div class="kpi-data">
+                    <h4>Punches Out</h4>
+                    <span id="kpi-out">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-panel" style="padding: 1.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <h2 style="font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                    <i class="ri-time-line" style="color: var(--accent-cyan);"></i> Attendance Master Logs
+                </h2>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button onclick="loadRecords()" class="btn-action btn-secondary">
+                        <i class="ri-refresh-line"></i> Refresh
+                    </button>
+                    <button onclick="exportToExcel()" class="btn-action btn-success">
+                        <i class="ri-file-excel-line"></i> Export Excel
+                    </button>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1.25rem;">
+                <input type="text" id="search-input" onkeyup="filterLogs()" class="input-control" placeholder="Search logs by Employee ID or Name...">
+            </div>
+
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th>Time In</th>
+                            <th>Lunch Out</th>
+                            <th>Lunch In</th>
+                            <th>Time Out</th>
+                            <th>Method</th>
+                            <th style="text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-table-body">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/sound.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/record.js') }}"></script>
+</body>
+</html>

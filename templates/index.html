@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Kiosk Terminal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script defer src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+
+    <div class="bg-glow-container">
+        <div class="glow-orb orb-primary"></div>
+        <div class="glow-orb orb-cyan"></div>
+    </div>
+
+    <div class="container">
+        <!-- Top Navigation Header -->
+        <header class="glass-panel" style="padding: 1.25rem 2rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <div class="nav-brand">
+                <div class="nav-brand-logo"><i class="ri-scan-touch-line"></i></div>
+                <div>
+                    <div>ATTENDANCE TERMINAL</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">Automated Verification Kiosk</div>
+                </div>
+            </div>
+
+            <!-- Right Controls: Live Clock & Admin Portal Button -->
+            <div style="display: flex; align-items: center; gap: 1.25rem;">
+                <div id="live-clock" style="font-size: 1.5rem; font-weight: 700; color: var(--accent-cyan); font-family: monospace;">--:--:--</div>
+                <a href="/admin" class="btn-action btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; padding: 0.5rem 1rem; text-decoration: none; font-size: 0.85rem; border-radius: 8px;">
+                    <i class="ri-shield-keyhole-line"></i> Admin Portal
+                </a>
+            </div>
+        </header>
+
+        <main class="kiosk-grid">
+            <div class="glass-panel" style="padding: 1.5rem;">
+                <div class="webcam-viewport">
+                    <video id="webcam" autoplay playsinline muted></video>
+                    <canvas id="overlay"></canvas>
+                    <div class="laser-scanner-line"></div>
+                    <div class="target-reticle"></div>
+                </div>
+
+                <div class="mode-switch-group">
+                    <button class="btn-mode-tab active" id="btn-face" onclick="switchMode('FACE')">
+                        <i class="ri-user-scan-line"></i> Face Scan
+                    </button>
+                    <button class="btn-mode-tab" id="btn-qr" onclick="switchMode('QR')">
+                        <i class="ri-qr-code-line"></i> QR Scan
+                    </button>
+                    <button class="btn-mode-tab" id="btn-manual" onclick="switchMode('MANUAL')">
+                        <i class="ri-keyboard-line"></i> Keypad Entry
+                    </button>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <div id="status-card" class="glass-panel status-card">
+                    <div class="status-title">SYSTEM STATUS</div>
+                    <div id="status-display" class="status-text">Ready for Verification</div>
+                </div>
+
+                <div id="manual-entry-panel" class="glass-panel hidden" style="padding: 1.5rem;">
+                    <h3 style="font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+                        <i class="ri-keyboard-line" style="color: var(--accent-cyan);"></i> Manual Punch Entry
+                    </h3>
+                    <form id="manual-clock-form">
+                        <div class="form-group">
+                            <label for="manual-code">Employee Code</label>
+                            <input type="text" id="manual-code" class="input-control" placeholder="EMP-101" required autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="manual-pin">4-Digit PIN</label>
+                            <input type="password" id="manual-pin" class="input-control" maxlength="4" placeholder="••••" required autocomplete="off">
+                        </div>
+                        <button type="submit" class="btn-action btn-success" style="width: 100%;">
+                            <i class="ri-check-line"></i> Submit Punch
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/sound.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/kiosk.js') }}"></script>
+</body>
+</html>
